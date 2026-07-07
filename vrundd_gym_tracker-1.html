@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Vrundd Gym Tracker</title>
+<style>
+  :root {
+    --bg: #0e0e0f;
+    --bg2: #1a1a1c;
+    --bg3: #242426;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --text2: #9a9a9a;
+    --text3: #606060;
+    --green: #1db954;
+    --green-bg: rgba(29,185,84,0.12);
+    --amber: #f59e0b;
+    --amber-bg: rgba(245,158,11,0.12);
+    --red: #ef4444;
+    --red-bg: rgba(239,68,68,0.12);
+    --blue: #3b82f6;
+    --blue-bg: rgba(59,130,246,0.12);
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+  .app { max-width: 430px; margin: 0 auto; padding-bottom: 80px; }
+
+  /* NAV */
+  .nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: rgba(14,14,15,0.95); backdrop-filter: blur(12px); border-top: 0.5px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 0 8px; gap: 3px; cursor: pointer; color: var(--text3); font-size: 10px; font-weight: 500; transition: color 0.15s; }
+  .nav-item svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nav-item.active { color: var(--green); }
+
+  /* SCREENS */
+  .screen { display: none; padding: 20px 16px 0; }
+  .screen.active { display: block; }
+
+  /* TYPOGRAPHY */
+  h1 { font-size: 24px; font-weight: 700; color: var(--text); }
+  h2 { font-size: 18px; font-weight: 600; color: var(--text); margin: 20px 0 12px; }
+  h3 { font-size: 15px; font-weight: 600; color: var(--text); }
+  p { font-size: 14px; color: var(--text2); line-height: 1.6; }
+
+  /* CARDS */
+  .card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .card-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+
+  /* METRIC GRID */
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .metric { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 12px; }
+  .metric-val { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+  .metric-unit { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* PROGRESS BAR */
+  .pbar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+  .pbar-fill { height: 100%; border-radius: 3px; background: var(--green); transition: width 0.4s ease; }
+  .pbar-fill.warn { background: var(--amber); }
+  .pbar-fill.danger { background: var(--red); }
+
+  /* STREAK DOTS */
+  .week-row { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; margin: 10px 0; }
+  .wdot { aspect-ratio: 1; border-radius: 50%; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: var(--text3); }
+  .wdot.done { background: var(--green); color: #fff; }
+  .wdot.missed { background: var(--red-bg); color: var(--red); }
+  .wdot.today { border: 1.5px solid var(--text3); }
+  .wdot.rest { background: var(--bg3); color: var(--text3); opacity: 0.5; }
+
+  /* WATER */
+  .water-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .wglass { width: 38px; height: 38px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px; transition: all 0.15s; background: var(--bg3); }
+  .wglass.filled { background: var(--blue-bg); border-color: var(--blue); }
+
+  /* ALERTS */
+  .alert { border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
+  .alert-green { background: var(--green-bg); color: #4ade80; border: 0.5px solid rgba(29,185,84,0.25); }
+  .alert-amber { background: var(--amber-bg); color: #fbbf24; border: 0.5px solid rgba(245,158,11,0.25); }
+  .alert-red { background: var(--red-bg); color: #f87171; border: 0.5px solid rgba(239,68,68,0.25); }
+  .alert-blue { background: var(--blue-bg); color: #93c5fd; border: 0.5px solid rgba(59,130,246,0.25); }
+
+  /* EXERCISE LIST */
+  .ex-item { padding: 14px 0; border-bottom: 0.5px solid var(--border); display: flex; gap: 14px; align-items: flex-start; }
+  .ex-item:last-child { border-bottom: none; }
+  .ex-num { width: 28px; height: 28px; border-radius: 50%; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text2); flex-shrink: 0; margin-top: 2px; }
+  .ex-name { font-size: 15px; font-weight: 600; color: var(--text); }
+  .ex-detail { font-size: 13px; color: var(--text2); margin-top: 3px; line-height: 1.5; }
+  .ex-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; margin-right: 4px; margin-top: 6px; font-weight: 600; }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-blue { background: var(--blue-bg); color: var(--blue); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+
+  /* BUTTONS */
+  .btn { width: 100%; padding: 16px; border: none; border-radius: var(--radius); font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.1s; letter-spacing: 0.01em; }
+  .btn:active { transform: scale(0.98); opacity: 0.85; }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border2); }
+  .btn:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; transform: none; }
+  .btn-sm { padding: 10px 16px; font-size: 13px; width: auto; }
+
+  /* FOOD */
+  .food-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 0.5px solid var(--border); }
+  .food-row:last-child { border-bottom: none; }
+  .food-name { font-size: 14px; font-weight: 500; color: var(--text); }
+  .food-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .food-cal { font-size: 14px; font-weight: 700; color: var(--green); min-width: 50px; text-align: right; }
+  .del-btn { background: none; border: none; color: var(--text3); cursor: pointer; padding: 4px 8px; font-size: 18px; }
+
+  select, input[type=text] { background: var(--bg3); color: var(--text); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 14px; width: 100%; margin-bottom: 8px; -webkit-appearance: none; outline: none; }
+  select:focus, input:focus { border-color: var(--green); }
+
+  /* CHECKLIST */
+  .chk-row { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 0.5px solid var(--border); cursor: pointer; }
+  .chk-row:last-child { border-bottom: none; }
+  .chk-box { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .chk-box.on { background: var(--green); border-color: var(--green); }
+  .chk-text { font-size: 14px; color: var(--text); line-height: 1.4; }
+  .chk-text.done { color: var(--text3); text-decoration: line-through; }
+
+  /* NAVRATRI COUNTDOWN */
+  .countdown { text-align: center; padding: 20px 0 10px; }
+  .countdown-big { font-size: 52px; font-weight: 800; color: var(--green); line-height: 1; }
+  .countdown-label { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* PLAN PHASES */
+  .phase { border-left: 3px solid var(--green); padding-left: 14px; margin-bottom: 20px; }
+  .phase.phase2 { border-color: var(--amber); }
+  .phase.phase3 { border-color: var(--blue); }
+  .phase-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .phase-date { font-size: 12px; color: var(--text3); margin-bottom: 10px; }
+
+  /* DAY PLAN */
+  .day-plan { display: flex; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+  .day-plan:last-child { border-bottom: none; }
+  .dp-day { font-size: 11px; font-weight: 700; color: var(--text3); width: 30px; flex-shrink: 0; padding-top: 3px; }
+  .dp-content { flex: 1; }
+  .dp-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .dp-detail { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.6; }
+
+  /* PROTEIN TABLE */
+  .protein-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .protein-item { background: var(--bg3); border-radius: var(--radius-sm); padding: 10px; }
+  .protein-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .protein-val { font-size: 12px; color: var(--green); margin-top: 2px; }
+
+  /* SECTION DIVIDER */
+  .divider { height: 0.5px; background: var(--border); margin: 8px 0 16px; }
+
+  /* TOP HEADER */
+  .top-bar { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px 0 4px; }
+  .greeting { font-size: 22px; font-weight: 700; }
+  .date-text { font-size: 13px; color: var(--text2); margin-top: 3px; }
+  .streak-pill { background: var(--amber-bg); border: 0.5px solid rgba(245,158,11,0.25); border-radius: 20px; padding: 6px 12px; display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: var(--amber); }
+
+  .tab-toggle { display: flex; background: var(--bg3); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 14px; gap: 2px; }
+  .tab-opt { flex: 1; text-align: center; padding: 8px 4px; font-size: 13px; font-weight: 600; color: var(--text3); border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+  .tab-opt.active { background: var(--bg2); color: var(--text); }
+
+  .week-phase { font-size: 12px; color: var(--text3); margin-bottom: 14px; padding: 10px; background: var(--bg3); border-radius: var(--radius-sm); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HOME -->
+  <div class="screen active" id="s-home">
+    <div class="top-bar">
+      <div>
+        <div class="greeting">Hey Vrundd 💪</div>
+        <div class="date-text" id="home-date"></div>
+      </div>
+      <div class="streak-pill">🔥 <span id="streak-num">0</span>d</div>
+    </div>
+
+    <div class="countdown">
+      <div class="countdown-big" id="days-left">98</div>
+      <div class="countdown-label">days until Navratri</div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-label">Journey progress</div>
+      <div class="pbar"><div class="pbar-fill" id="journey-bar" style="width:0%"></div></div>
+      <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text3); margin-top:6px;">
+        <span>Jun 25</span>
+        <span id="journey-pct">0% done</span>
+        <span>Navratri</span>
+      </div>
+    </div>
+
+    <div id="home-alert" class="alert alert-amber"></div>
+
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-val" id="cal-eaten">0</div>
+        <div class="metric-unit">kcal eaten</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">1,650</div>
+        <div class="metric-unit">kcal target</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Calories today</div>
+      <div class="pbar"><div class="pbar-fill" id="cal-bar" style="width:0%"></div></div>
+      <div id="cal-status" style="font-size:12px; color:var(--text3); margin-top:4px;">Log meals in Food tab</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Water — target 3.5L (14 glasses)</div>
+      <div class="water-grid" id="water-grid"></div>
+      <div id="water-label" style="font-size:12px; color:var(--text3); margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">This week</div>
+      <div class="week-row" id="week-dots"></div>
+      <div style="display:flex; gap:14px; margin-top:8px; font-size:11px; color:var(--text3);">
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);"></span>Done</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--red);border-radius:50%;"></span>Missed</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--bg3);"></span>Rest day</span>
+      </div>
+    </div>
+
+    <button class="btn btn-green" onclick="goWorkout()">Start today's workout →</button>
+  </div>
+
+  <!-- WORKOUT -->
+  <div class="screen" id="s-workout">
+    <div class="top-bar" style="padding-bottom:0;">
+      <div>
+        <div class="greeting" id="wo-title">Workout</div>
+        <div class="date-text" id="wo-subtitle"></div>
+      </div>
+    </div>
+
+    <div style="margin:14px 0 10px;">
+      <div class="tab-toggle">
+        <div class="tab-opt active" id="phase-tab-1" onclick="switchPhase(1)">Phase 1</div>
+        <div class="tab-opt" id="phase-tab-2" onclick="switchPhase(2)">Phase 2</div>
+        <div class="tab-opt" id="phase-tab-3" onclick="switchPhase(3)">Phase 3</div>
+      </div>
+    </div>
+
+    <div id="wo-phase-note" class="week-phase"></div>
+    <div id="wo-alert" class="alert alert-blue"></div>
+    <div id="wo-exercises" class="card"></div>
+    <div id="wo-timetable" class="card" style="margin-top:0;"></div>
+
+    <button class="btn btn-green" id="wo-btn" onclick="markDone()">Mark workout complete ✓</button>
+  </div>
+
+  <!-- FOOD -->
+  <div class="screen" id="s-food">
+    <h1 style="padding-top:20px;">Food Log</h1>
+
+    <div class="card" style="margin-top:14px;">
+      <div class="card-label">What did you eat? Just type it</div>
+      <textarea id="food-text" placeholder="e.g. 2 roti with dal and sabzi, 1 katori curd&#10;or: poha 1 plate, 1 chai with sugar&#10;or: 3 gathiya pieces and mango juice" style="width:100%; background:var(--bg3); color:var(--text); border:0.5px solid var(--border2); border-radius:var(--radius-sm); padding:12px; font-size:14px; font-family:inherit; resize:none; height:90px; outline:none; line-height:1.5; margin-bottom:8px;"></textarea>
+      <select id="meal-type" style="margin-bottom:8px;">
+        <option value="Breakfast">🌅 Breakfast</option>
+        <option value="Lunch">☀️ Lunch</option>
+        <option value="Snack">🫙 Snack</option>
+        <option value="Dinner">🌙 Dinner</option>
+      </select>
+      <button class="btn btn-green" id="analyze-btn" onclick="analyzeFood()">Analyse with AI →</button>
+      <div id="ai-result" style="display:none; margin-top:12px; padding:12px; background:var(--bg3); border-radius:var(--radius-sm); border:0.5px solid var(--border2);">
+        <div id="ai-result-text" style="font-size:13px; color:var(--text2); line-height:1.6;"></div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn btn-green" style="padding:10px; font-size:13px;" id="confirm-btn" onclick="confirmFood()">Add to log ✓</button>
+          <button class="btn btn-outline" style="padding:10px; font-size:13px;" onclick="cancelAI()">Cancel</button>
+        </div>
+      </div>
+      <div id="ai-loading" style="display:none; text-align:center; padding:14px 0; font-size:13px; color:var(--text3);">Analysing... ⏳</div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <div class="card-label" style="margin:0;">Today's meals</div>
+        <div id="food-total" style="font-size:16px; font-weight:700; color:var(--green);">0 kcal</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px;">
+        <div style="text-align:center; background:var(--bg3); border-radius:var(--radius-sm); padding:8px;">
+          <div style="font-size:16px; font-weight:700; color:var(--text);" id="macro-protein">0g</div>
+          <div style="font-size:10px; color:var(--text3);">Protein</div>
+        </div>
+        <div style="text-align:center; background:var(--bg3); border-radius:var(--radius-sm); padding:8px;">
+          <div style="font-size:16px; font-weight:700; color:var(--text);" id="macro-carbs">0g</div>
+          <div style="font-size:10px; color:var(--text3);">Carbs</div>
+        </div>
+        <div style="text-align:center; background:var(--bg3); border-radius:var(--radius-sm); padding:8px;">
+          <div style="font-size:16px; font-weight:700; color:var(--text);" id="macro-fat">0g</div>
+          <div style="font-size:10px; color:var(--text3);">Fat</div>
+        </div>
+      </div>
+      <div id="food-list"><p style="padding:8px 0; font-size:13px; color:var(--text3);">Nothing logged yet — type what you ate above</p></div>
+    </div>
+
+    <div id="ai-suggestion-card" style="display:none;" class="card">
+      <div class="card-label">AI suggestions</div>
+      <div id="ai-suggestion-text" style="font-size:13px; color:var(--text2); line-height:1.6;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Diet rules</div>
+      <div class="ex-item" style="border-bottom:0.5px solid var(--border);">
+        <div style="color:var(--green); font-size:16px; flex-shrink:0;">✓</div>
+        <div class="ex-detail">Eat dinner every night. Skipping slows your metabolism — this is the biggest mistake you've been making.</div>
+      </div>
+      <div class="ex-item" style="border-bottom:0.5px solid var(--border);">
+        <div style="color:var(--green); font-size:16px; flex-shrink:0;">✓</div>
+        <div class="ex-detail">Target 1,600–1,800 kcal/day. Under 1,400 causes muscle loss.</div>
+      </div>
+      <div class="ex-item" style="border-bottom:0.5px solid var(--border);">
+        <div style="color:var(--green); font-size:16px; flex-shrink:0;">✓</div>
+        <div class="ex-detail">Protein every meal: dal, paneer, curd, chana, peanuts, milk.</div>
+      </div>
+      <div class="ex-item" style="border-bottom:0.5px solid var(--border);">
+        <div style="color:var(--red); font-size:16px; flex-shrink:0;">✗</div>
+        <div class="ex-detail">No gathiya/farsan as daily snack — max 2× per week.</div>
+      </div>
+      <div class="ex-item">
+        <div style="color:var(--blue); font-size:16px; flex-shrink:0;">💧</div>
+        <div class="ex-detail">Water: 3–3.5L max. 7L is harming you — flushes electrolytes, makes you tired.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAN -->
+  <div class="screen" id="s-plan">
+    <h1 style="padding-top:20px;">Your Plan</h1>
+    <p style="margin:8px 0 20px;">Jun 25 → Navratri. 3.5 months. Realistic target: lose 8–12kg, visible muscle on chest/arms.</p>
+
+    <div class="phase">
+      <div class="phase-title">Phase 1 — Build the habit</div>
+      <div class="phase-date">Weeks 1–2 · Jun 25 – Jul 8 (vacation)</div>
+      <div class="week-phase" style="margin-bottom:0;">Short sessions. No soreness. You've quit before because of pain — this fixes that. 45–60 min per session.</div>
+      <div style="margin-top:10px;">
+        <div class="day-plan"><div class="dp-day">MON</div><div class="dp-content"><div class="dp-title">Cardio</div><div class="dp-detail">Treadmill 25 min (5–6 km/h) · Evening walk 20 min</div></div></div>
+        <div class="day-plan"><div class="dp-day">TUE</div><div class="dp-content"><div class="dp-title">Upper A</div><div class="dp-detail">Chest press 3×12 · Lat pulldown 3×12 · Dumbbell curl 3×15 · Overhead press 3×12 · Treadmill 15 min</div></div></div>
+        <div class="day-plan"><div class="dp-day">WED</div><div class="dp-content"><div class="dp-title">Active rest</div><div class="dp-detail">Walk 25 min only. No gym. Recovery is part of the plan.</div></div></div>
+        <div class="day-plan"><div class="dp-day">THU</div><div class="dp-content"><div class="dp-title">Lower + Core</div><div class="dp-detail">Bodyweight squats 3×15 · Lunges 3×12 · Bench sit-ups 4×15 · Cycle 20 min</div></div></div>
+        <div class="day-plan"><div class="dp-day">FRI</div><div class="dp-content"><div class="dp-title">Upper B</div><div class="dp-detail">Barbell bench 3×10 · EZ bar curl 3×12 · Lat pulldown 3×12 · Tricep dips on bench 3×12 · Treadmill 15 min</div></div></div>
+        <div class="day-plan"><div class="dp-day">SAT</div><div class="dp-content"><div class="dp-title">Cardio + Core</div><div class="dp-detail">Treadmill 30 min (level 2 incline) · Sit-ups 3×20 · Plank 3×20 sec</div></div></div>
+        <div class="day-plan"><div class="dp-day">SUN</div><div class="dp-content"><div class="dp-title">Full rest</div><div class="dp-detail">Sleep 8 hrs. Eat well. Muscles grow on rest days.</div></div></div>
+      </div>
+    </div>
+
+    <div class="phase phase2">
+      <div class="phase-title">Phase 2 — Build intensity</div>
+      <div class="phase-date">Weeks 3–6 · Jul 9 – Aug 4</div>
+      <div class="week-phase" style="margin-bottom:0;">Sessions grow to 75–90 min. Add 2.5kg to all lifts every week. Introduce deadlifts. Treadmill → 35 min with incline level 4–5. Add compound movements.</div>
+      <div style="margin-top:10px;">
+        <div class="day-plan"><div class="dp-day">MON</div><div class="dp-content"><div class="dp-title">Push (chest/shoulder/tricep)</div><div class="dp-detail">Bench press 4×10 · Overhead press 4×10 · Incline dumbbell press 3×12 · Tricep extension 3×15 · Treadmill 20 min</div></div></div>
+        <div class="day-plan"><div class="dp-day">TUE</div><div class="dp-content"><div class="dp-title">Pull (back/bicep)</div><div class="dp-detail">Deadlift 4×8 (light) · Lat pulldown 4×12 · Barbell row 3×10 · EZ curl 4×12 · Hammer curl 3×12</div></div></div>
+        <div class="day-plan"><div class="dp-day">WED</div><div class="dp-content"><div class="dp-title">Legs + Core</div><div class="dp-detail">Barbell squat 4×10 · Lunges 3×15 · Leg curl machine 3×12 · Plank 4×30 sec · Crunches 4×20</div></div></div>
+        <div class="day-plan"><div class="dp-day">THU</div><div class="dp-content"><div class="dp-title">Cardio + Core</div><div class="dp-detail">Treadmill 35 min incline · Russian twists 3×20 · Leg raises 3×15</div></div></div>
+        <div class="day-plan"><div class="dp-day">FRI</div><div class="dp-content"><div class="dp-title">Push (repeat)</div><div class="dp-detail">Same as Monday, increase weight if Mon felt easy</div></div></div>
+        <div class="day-plan"><div class="dp-day">SAT</div><div class="dp-content"><div class="dp-title">Pull + Core</div><div class="dp-detail">Same as Tuesday + extra abs work</div></div></div>
+        <div class="day-plan"><div class="dp-day">SUN</div><div class="dp-content"><div class="dp-title">Rest</div><div class="dp-detail">Full rest. Mandatory.</div></div></div>
+      </div>
+    </div>
+
+    <div class="phase phase3">
+      <div class="phase-title">Phase 3 — Peak push before Navratri</div>
+      <div class="phase-date">Weeks 7–14 · Aug 5 – Navratri</div>
+      <div class="week-phase" style="margin-bottom:0;">Full 90 min sessions. Push-Pull-Legs 6 days/week. Cardio 4× weekly. Progressive overload every week. Diet gets stricter — cut gathiya/biscuits completely. Add sprouts daily.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Realistic Navratri result</div>
+      <div class="ex-item"><div style="color:var(--green); font-size:14px; flex-shrink:0; font-weight:700;">✓</div><div class="ex-detail"><strong>8–12kg lost</strong> — from 80kg down to ~68–72kg</div></div>
+      <div class="ex-item"><div style="color:var(--green); font-size:14px; flex-shrink:0; font-weight:700;">✓</div><div class="ex-detail">Belly noticeably flatter. Face slimmer. Arms more defined.</div></div>
+      <div class="ex-item"><div style="color:var(--green); font-size:14px; flex-shrink:0; font-weight:700;">✓</div><div class="ex-detail">Energy much higher, posture improved, clothes fit better.</div></div>
+      <div class="ex-item"><div style="color:var(--amber); font-size:14px; flex-shrink:0; font-weight:700;">!</div><div class="ex-detail">Full six-pack / fully aesthetic body takes 12–18 months. Month 3 is the beginning, not the end.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Protein sources (no supplement needed)</div>
+      <div class="protein-grid">
+        <div class="protein-item"><div class="protein-name">Dal (1 katori)</div><div class="protein-val">8–10g protein</div></div>
+        <div class="protein-item"><div class="protein-name">Paneer (100g)</div><div class="protein-val">18g protein</div></div>
+        <div class="protein-item"><div class="protein-name">Curd (1 bowl)</div><div class="protein-val">6–8g protein</div></div>
+        <div class="protein-item"><div class="protein-name">Milk (1 glass)</div><div class="protein-val">8g protein</div></div>
+        <div class="protein-item"><div class="protein-name">Peanuts (30g)</div><div class="protein-val">7g protein</div></div>
+        <div class="protein-item"><div class="protein-name">Chana (1 katori)</div><div class="protein-val">10–12g protein</div></div>
+        <div class="protein-item"><div class="protein-name">Sprouts (1 bowl)</div><div class="protein-val">8g protein</div></div>
+        <div class="protein-item"><div class="protein-name">Soy chunks (50g)</div><div class="protein-val">24g protein</div></div>
+      </div>
+      <p style="margin-top:10px; font-size:12px;">Target: 80–100g protein/day total across 3 meals. Soy chunks (nutrela) are your secret weapon — cheap, no supplement needed.</p>
+    </div>
+  </div>
+
+  <!-- COACH -->
+  <div class="screen" id="s-coach">
+    <h1 style="padding-top:20px;">Daily check-in</h1>
+    <p style="margin:8px 0 18px;">Tick off what you did today. Be honest.</p>
+
+    <div class="card">
+      <div id="checklist"></div>
+      <button class="btn btn-outline" style="margin-top:14px;" onclick="submitCheckin()">Send to coach →</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Why you failed before</div>
+      <div class="ex-item">
+        <div class="ex-num">1</div>
+        <div>
+          <div class="ex-name">Too much too fast</div>
+          <div class="ex-detail">1 hr treadmill on day 1 → knee pain → quit. Fixed: Phase 1 is short on purpose.</div>
+        </div>
+      </div>
+      <div class="ex-item">
+        <div class="ex-num">2</div>
+        <div>
+          <div class="ex-name">Skipping dinner</div>
+          <div class="ex-detail">Slows metabolism 15–20%. Body holds fat harder. Fixed: eat all 3 meals.</div>
+        </div>
+      </div>
+      <div class="ex-item">
+        <div class="ex-num">3</div>
+        <div>
+          <div class="ex-name">7 litres water/day</div>
+          <div class="ex-detail">Flushes electrolytes, causes fatigue and bloating. Fixed: 3–3.5L max.</div>
+        </div>
+      </div>
+      <div class="ex-item">
+        <div class="ex-num">4</div>
+        <div>
+          <div class="ex-name">No plan, no tracking</div>
+          <div class="ex-detail">Without tracking you don't know if you're in deficit. Fixed: this app.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Your equipment vs what you need</div>
+      <div class="ex-item"><div style="color:var(--green); flex-shrink:0;">✓</div><div class="ex-detail">Treadmill — cardio covered</div></div>
+      <div class="ex-item"><div style="color:var(--green); flex-shrink:0;">✓</div><div class="ex-detail">Barbell + plates — compound lifts covered</div></div>
+      <div class="ex-item"><div style="color:var(--green); flex-shrink:0;">✓</div><div class="ex-detail">Dumbbells — isolation work covered</div></div>
+      <div class="ex-item"><div style="color:var(--green); flex-shrink:0;">✓</div><div class="ex-detail">Lat pulldown / multi-gym — back covered</div></div>
+      <div class="ex-item"><div style="color:var(--green); flex-shrink:0;">✓</div><div class="ex-detail">Slovic adjustable bench — incline/decline covered</div></div>
+      <div class="ex-item"><div style="color:var(--green); flex-shrink:0;">✓</div><div class="ex-detail">EZ bar — bicep/tricep covered</div></div>
+      <div class="ex-item"><div style="color:var(--amber); flex-shrink:0;">!</div><div class="ex-detail">Vibration plate — don't rely on this for fat loss. Use as warm-up only.</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="nav">
+  <div class="nav-item active" id="nav-home" onclick="gotoScreen('home')">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Today
+  </div>
+  <div class="nav-item" id="nav-workout" onclick="gotoScreen('workout')">
+    <svg viewBox="0 0 24 24"><path d="M6 4v16"/><path d="M18 4v16"/><path d="M6 8h12"/><path d="M6 16h12"/><path d="M2 8h2"/><path d="M20 8h2"/><path d="M2 16h2"/><path d="M20 16h2"/></svg>
+    Workout
+  </div>
+  <div class="nav-item" id="nav-food" onclick="gotoScreen('food')">
+    <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 6v6l4 2"/></svg>
+    Food
+  </div>
+  <div class="nav-item" id="nav-plan" onclick="gotoScreen('plan')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Plan
+  </div>
+  <div class="nav-item" id="nav-coach" onclick="gotoScreen('coach')">
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Coach
+  </div>
+</nav>
+
+<script>
+const KEY = 'vgym_v2';
+let S = {
+  water: 0,
+  foodLog: [],
+  workoutDone: false,
+  streak: 0,
+  weekLog: {},
+  checklist: {},
+  lastDate: '',
+  currentPhase: 1
+};
+
+function load() {
+  try {
+    const d = localStorage.getItem(KEY);
+    if (d) S = Object.assign(S, JSON.parse(d));
+    const today = todayKey();
+    if (S.lastDate !== today) {
+      S.water = 0;
+      S.foodLog = [];
+      S.workoutDone = false;
+      S.checklist = {};
+      if (S.lastDate && S.lastDate !== today) {
+        const wd = new Date(S.lastDate).getDay();
+        if (wd !== 0) S.weekLog[S.lastDate] = 'missed';
+      }
+      S.lastDate = today;
+      save();
+    }
+  } catch(e) {}
+}
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {}
+}
+
+function todayKey() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function dateOffset(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+
+function gotoScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('s-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'home') renderHome();
+  if (name === 'workout') renderWorkout();
+  if (name === 'food') renderFood();
+  if (name === 'coach') renderCoach();
+}
+
+function goWorkout() { gotoScreen('workout'); }
+
+// ── HOME ──
+function renderHome() {
+  const now = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('home-date').textContent = days[now.getDay()] + ' · ' + now.getDate() + ' ' + months[now.getMonth()] + ' 2026';
+  document.getElementById('streak-num').textContent = S.streak;
+
+  const navratri = new Date('2026-10-02');
+  const start = new Date('2026-06-25');
+  const remaining = Math.max(0, Math.round((navratri - now) / 86400000));
+  const total = Math.round((navratri - start) / 86400000);
+  const pct = Math.round(((total - remaining) / total) * 100);
+  document.getElementById('days-left').textContent = remaining;
+  document.getElementById('journey-bar').style.width = pct + '%';
+  document.getElementById('journey-pct').textContent = pct + '% done';
+
+  const totalCal = S.foodLog.reduce((a, f) => a + f.cal, 0);
+  document.getElementById('cal-eaten').textContent = totalCal.toLocaleString('en-IN');
+  const cp = Math.min(110, Math.round(totalCal / 1650 * 100));
+  const fill = document.getElementById('cal-bar');
+  fill.style.width = cp + '%';
+  fill.className = 'pbar-fill' + (cp > 105 ? ' danger' : cp > 90 ? '' : '');
+  document.getElementById('cal-status').textContent = cp > 105 ? 'Over target — skip next snack' : cp > 80 ? 'On track 👍' : totalCal + ' / 1,650 kcal';
+
+  const al = document.getElementById('home-alert');
+  const dow = now.getDay();
+  const wo = getWorkout(S.currentPhase, dow);
+  if (S.workoutDone) { al.className = 'alert alert-green'; al.textContent = 'Workout done today! Rest well and eat your dinner. Come back tomorrow.'; }
+  else if (dow === 0) { al.className = 'alert alert-blue'; al.textContent = 'Rest day today. Full rest. Eat well and sleep 8 hours.'; }
+  else { al.className = 'alert alert-amber'; al.textContent = 'Today: ' + wo.name + '. ' + wo.short; }
+
+  const wg = document.getElementById('water-grid');
+  wg.innerHTML = '';
+  for (let i = 0; i < 14; i++) {
+    const g = document.createElement('div');
+    g.className = 'wglass' + (i < S.water ? ' filled' : '');
+    g.textContent = '🥛';
+    g.onclick = () => { S.water = S.water === i + 1 ? i : i + 1; save(); renderHome(); };
+    wg.appendChild(g);
+  }
+  const litres = (S.water * 0.25).toFixed(1);
+  document.getElementById('water-label').textContent = litres + 'L / 3.5L' + (S.water >= 16 ? ' ⚠️ Too much! Stop here.' : S.water >= 14 ? ' Perfect 👍' : '');
+
+  const wd = document.getElementById('week-dots');
+  wd.innerHTML = '';
+  const dNames = ['S','M','T','W','T','F','S'];
+  const curDow = now.getDay();
+  for (let i = 0; i < 7; i++) {
+    const offset = i - curDow;
+    const key = dateOffset(offset);
+    const d = document.createElement('div');
+    let cls = 'wdot';
+    if (i === curDow) cls += ' today';
+    if (i === 0) cls += ' rest';
+    else if (S.weekLog[key] === 'done') cls += ' done';
+    else if (S.weekLog[key] === 'missed') cls += ' missed';
+    d.className = cls;
+    d.textContent = dNames[i];
+    wd.appendChild(d);
+  }
+}
+
+// ── WORKOUT ──
+const WORKOUTS = {
+  1: {
+    1: { name: 'Cardio', short: 'Treadmill 25 min + evening walk.',
+      note: '⚠️ Start at 5 km/h. If you feel out of breath, slow down. This is Phase 1 — joint conditioning matters more than sweat.',
+      time: '45–50 min total',
+      exercises: [
+        { n: 'Treadmill', d: '25 min · 5–6 km/h · flat', badge: 'Cardio' },
+        { n: 'Evening walk (outside)', d: '20 min · any pace · fresh air', badge: 'Recovery' }
+      ]},
+    2: { name: 'Upper A', short: 'Chest, back, biceps.',
+      note: '💡 Use the lightest weight you have for week 1. Form over weight — always. If you feel joint pain, stop that exercise immediately.',
+      time: '55–65 min total',
+      exercises: [
+        { n: 'Chest press (multi-gym)', d: '3 sets × 12 reps · 30 sec rest', badge: 'Chest' },
+        { n: 'Lat pulldown', d: '3 sets × 12 reps · 45 sec rest', badge: 'Back' },
+        { n: 'Dumbbell curl', d: '3 sets × 15 reps · 30 sec rest', badge: 'Bicep' },
+        { n: 'Overhead press (dumbbells)', d: '3 sets × 12 reps · 30 sec rest', badge: 'Shoulder' },
+        { n: 'Treadmill warm-down', d: '15 min · 4.5 km/h · flat', badge: 'Cardio' }
+      ]},
+    3: { name: 'Active Rest', short: 'Walk 25 min only — no gym.',
+      note: '✅ Rest days are when muscles actually grow. Do not skip this and "make up" yesterday. Just walk.',
+      time: '25 min',
+      exercises: [
+        { n: 'Walk only', d: '25 min · easy pace · outside or treadmill', badge: 'Recovery' }
+      ]},
+    4: { name: 'Lower + Core', short: 'Legs, glutes, and abs.',
+      note: '💡 Bodyweight squats only for week 1. No added weight on your back. Knees must track over toes.',
+      time: '60–65 min total',
+      exercises: [
+        { n: 'Bodyweight squats', d: '3 sets × 15 reps · 45 sec rest', badge: 'Legs' },
+        { n: 'Lunges (forward)', d: '3 sets × 12 each leg · 45 sec rest', badge: 'Legs' },
+        { n: 'Incline sit-ups (Slovic bench)', d: '4 sets × 15 reps · 30 sec rest', badge: 'Core' },
+        { n: 'Plank hold', d: '3 × 20 sec · build to 30 sec', badge: 'Core' },
+        { n: 'Cycle ergometer', d: '20 min · medium resistance', badge: 'Cardio' }
+      ]},
+    5: { name: 'Upper B', short: 'Barbell bench, EZ curls, triceps.',
+      note: '💡 Try 2.5kg more on bench vs Tuesday if Tuesday felt easy. If not, same weight. Never ego lift.',
+      time: '60–70 min total',
+      exercises: [
+        { n: 'Barbell bench press', d: '3 sets × 10 reps · 60 sec rest', badge: 'Chest' },
+        { n: 'EZ bar curl', d: '3 sets × 12 reps · 30 sec rest', badge: 'Bicep' },
+        { n: 'Lat pulldown (wide grip)', d: '3 sets × 12 reps · 45 sec rest', badge: 'Back' },
+        { n: 'Tricep dips (on Slovic bench)', d: '3 sets × 12 reps · 30 sec rest', badge: 'Tricep' },
+        { n: 'Treadmill', d: '15 min · 5 km/h', badge: 'Cardio' }
+      ]},
+    6: { name: 'Cardio + Core', short: 'Treadmill incline + abs.',
+      note: '🔥 End of the week! Add incline level 2 to treadmill today. Your body should feel stronger than Monday.',
+      time: '55–60 min total',
+      exercises: [
+        { n: 'Treadmill (incline level 2)', d: '30 min · 5 km/h · burn fat', badge: 'Cardio' },
+        { n: 'Crunches', d: '3 sets × 20 reps · 30 sec rest', badge: 'Core' },
+        { n: 'Leg raises (on Slovic bench)', d: '3 sets × 15 reps', badge: 'Core' },
+        { n: 'Plank', d: '3 × 25 sec', badge: 'Core' }
+      ]},
+    0: { name: 'Rest Day', short: 'Full rest. Mandatory.',
+      note: '😴 Rest. Sleep 8 hours. Eat your dinner. Your body is rebuilding muscle right now. Do not gym today.',
+      time: '0 min gym',
+      exercises: [{ n: 'Full rest', d: 'No gym. Eat well, sleep 8 hours.', badge: 'Recovery' }]}
+  },
+  2: {
+    1: { name: 'Push', short: 'Chest, shoulder, tricep.',
+      note: '📈 Phase 2: sessions are now 75–90 min. Increase weight by 2.5kg vs last week on all lifts.',
+      time: '80–90 min',
+      exercises: [
+        { n: 'Barbell bench press', d: '4 sets × 10 · increase weight weekly', badge: 'Chest' },
+        { n: 'Overhead press', d: '4 sets × 10 · strict form', badge: 'Shoulder' },
+        { n: 'Incline dumbbell press', d: '3 sets × 12 · on Slovic bench', badge: 'Chest' },
+        { n: 'Tricep extension (EZ bar)', d: '3 sets × 15', badge: 'Tricep' },
+        { n: 'Treadmill', d: '20 min · incline 4 · 5.5 km/h', badge: 'Cardio' }
+      ]},
+    2: { name: 'Pull', short: 'Back, bicep. Deadlifts begin.',
+      note: '⚠️ Deadlift: Start with very light weight — 20–30kg only. Form is everything. Watch YouTube "deadlift form" before starting.',
+      time: '80–90 min',
+      exercises: [
+        { n: 'Deadlift (light)', d: '4 sets × 8 · slow down, 2 sec up', badge: 'Back' },
+        { n: 'Lat pulldown', d: '4 sets × 12 · slow and controlled', badge: 'Back' },
+        { n: 'Barbell row', d: '3 sets × 10 · hinge at hip', badge: 'Back' },
+        { n: 'EZ bar curl', d: '4 sets × 12', badge: 'Bicep' },
+        { n: 'Hammer curl', d: '3 sets × 12', badge: 'Bicep' }
+      ]},
+    3: { name: 'Legs + Core', short: 'Squats, lunges, abs.',
+      note: '💡 Add barbell to squats now. Start light (30–40kg). Knees must stay behind toes.',
+      time: '80–90 min',
+      exercises: [
+        { n: 'Barbell squat', d: '4 sets × 10 · 30–40kg to start', badge: 'Legs' },
+        { n: 'Lunges (dumbbell)', d: '3 sets × 15 each leg', badge: 'Legs' },
+        { n: 'Leg curl (multi-gym)', d: '3 sets × 12', badge: 'Legs' },
+        { n: 'Plank', d: '4 × 30 sec', badge: 'Core' },
+        { n: 'Crunches', d: '4 sets × 20', badge: 'Core' }
+      ]},
+    4: { name: 'Cardio + Core', short: 'Treadmill 35 min + abs.',
+      note: '🔥 Today is pure fat burn. Maintain incline level 4–5 on treadmill the whole time.',
+      time: '55–65 min',
+      exercises: [
+        { n: 'Treadmill', d: '35 min · incline 4–5 · 5 km/h', badge: 'Cardio' },
+        { n: 'Russian twists', d: '3 sets × 20 (holding dumbbell)', badge: 'Core' },
+        { n: 'Leg raises', d: '3 sets × 15', badge: 'Core' }
+      ]},
+    5: { name: 'Push repeat', short: 'Same as Monday, heavier.',
+      note: '📈 Try to add 2.5kg to Monday\'s weights. If not possible, same weight with better form.',
+      time: '80–90 min',
+      exercises: [
+        { n: 'Bench press', d: '4 sets × 10 · heavier than Mon', badge: 'Chest' },
+        { n: 'Overhead press', d: '4 sets × 10', badge: 'Shoulder' },
+        { n: 'Incline dumbbell press', d: '3 sets × 12', badge: 'Chest' },
+        { n: 'Tricep pushdown / dips', d: '4 sets × 15', badge: 'Tricep' },
+        { n: 'Treadmill', d: '20 min · incline 4', badge: 'Cardio' }
+      ]},
+    6: { name: 'Pull + Core', short: 'Back, biceps, and abs.',
+      note: '💪 Last day of the week. Push yourself today.',
+      time: '80–90 min',
+      exercises: [
+        { n: 'Deadlift', d: '4 sets × 8 · add 5kg vs Tuesday', badge: 'Back' },
+        { n: 'Lat pulldown', d: '4 sets × 12', badge: 'Back' },
+        { n: 'EZ bar curl', d: '4 sets × 12', badge: 'Bicep' },
+        { n: 'Crunches + Plank superset', d: '4 rounds', badge: 'Core' }
+      ]},
+    0: { name: 'Rest Day', short: 'Full rest.',
+      note: '😴 Rest completely. Your body is rebuilding. Sleep 8 hours.',
+      time: '0 min',
+      exercises: [{ n: 'Full rest', d: 'No gym today.', badge: 'Recovery' }]}
+  }
+};
+
+WORKOUTS[3] = WORKOUTS[2];
+
+function getWorkout(phase, dow) {
+  const p = WORKOUTS[phase] || WORKOUTS[2];
+  return p[dow] || p[0];
+}
+
+let currentPhaseShown = 1;
+
+function renderWorkout() {
+  const dow = new Date().getDay();
+  const wo = getWorkout(currentPhaseShown, dow);
+  document.getElementById('wo-title').textContent = wo.name;
+  document.getElementById('wo-subtitle').textContent = wo.time;
+
+  const phaseNotes = {
+    1: 'Phase 1 (Weeks 1–2): Short sessions, no joint pain. Goal: build habit. Sessions 45–65 min.',
+    2: 'Phase 2 (Weeks 3–6): Full sessions 80–90 min. Push-Pull-Legs. Add 2.5kg/week.',
+    3: 'Phase 3 (Weeks 7–14): Peak phase. 90 min, 6 days. Progressive overload. Diet strict.'
+  };
+  document.getElementById('wo-phase-note').textContent = phaseNotes[currentPhaseShown];
+
+  const al = document.getElementById('wo-alert');
+  al.textContent = wo.note;
+  al.className = 'alert alert-blue';
+
+  const list = document.getElementById('wo-exercises');
+  list.innerHTML = '<div class="card-label">Exercises</div>';
+  wo.exercises.forEach((ex, i) => {
+    const div = document.createElement('div');
+    div.className = 'ex-item';
+    const bcolor = ex.badge === 'Cardio' ? 'badge-blue' : ex.badge === 'Recovery' ? 'badge-amber' : ex.badge === 'Core' ? 'badge-red' : 'badge-green';
+    div.innerHTML = '<div class="ex-num">' + (i + 1) + '</div><div><div class="ex-name">' + ex.n + '</div><div class="ex-detail">' + ex.d + '</div><span class="ex-badge ' + bcolor + '">' + ex.badge + '</span></div>';
+    list.appendChild(div);
+  });
+
+  const btn = document.getElementById('wo-btn');
+  if (S.workoutDone || dow === 0) {
+    btn.textContent = S.workoutDone ? '✓ Workout complete for today' : 'Rest day — no workout needed';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'Mark workout complete ✓';
+    btn.disabled = false;
+  }
+
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('phase-tab-' + i);
+    el.className = 'tab-opt' + (i === currentPhaseShown ? ' active' : '');
+  }
+}
+
+function switchPhase(n) {
+  currentPhaseShown = n;
+  renderWorkout();
+}
+
+function markDone() {
+  S.workoutDone = true;
+  S.streak = (S.streak || 0) + 1;
+  S.weekLog[todayKey()] = 'done';
+  save();
+  renderWorkout();
+  renderHome();
+}
+
+// ── FOOD ──
+let pendingFood = null;
+
+function renderFood() {
+  const total = S.foodLog.reduce((a, f) => a + f.cal, 0);
+  const totalProtein = S.foodLog.reduce((a, f) => a + (f.protein || 0), 0);
+  const totalCarbs = S.foodLog.reduce((a, f) => a + (f.carbs || 0), 0);
+  const totalFat = S.foodLog.reduce((a, f) => a + (f.fat || 0), 0);
+
+  document.getElementById('food-total').textContent = total + ' kcal';
+  document.getElementById('macro-protein').textContent = Math.round(totalProtein) + 'g';
+  document.getElementById('macro-carbs').textContent = Math.round(totalCarbs) + 'g';
+  document.getElementById('macro-fat').textContent = Math.round(totalFat) + 'g';
+
+  const list = document.getElementById('food-list');
+  if (!S.foodLog.length) {
+    list.innerHTML = '<p style="padding:8px 0; font-size:13px; color:var(--text3);">Nothing logged yet — type what you ate above</p>';
+    document.getElementById('ai-suggestion-card').style.display = 'none';
+    return;
+  }
+  list.innerHTML = '';
+  S.foodLog.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'food-row';
+    const macroStr = (f.protein ? f.protein + 'g P' : '') + (f.carbs ? ' · ' + f.carbs + 'g C' : '') + (f.fat ? ' · ' + f.fat + 'g F' : '');
+    row.innerHTML = '<div style="flex:1;min-width:0;"><div class="food-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + f.name + '</div><div class="food-sub">' + f.meal + ' · ' + f.time + (macroStr ? ' · ' + macroStr : '') + '</div></div><div style="display:flex;align-items:center;gap:6px;flex-shrink:0;"><div class="food-cal">' + f.cal + '</div><button class="del-btn" onclick="delFood(' + i + ')">×</button></div>';
+    list.appendChild(row);
+  });
+
+  // Show daily summary suggestion
+  const sugCard = document.getElementById('ai-suggestion-card');
+  const remaining = 1650 - total;
+  let suggestion = '';
+  if (remaining > 600) {
+    suggestion = '⚠️ You still need ~' + remaining + ' kcal today. Make sure to eat dinner — skipping it slows your metabolism.';
+  } else if (remaining > 200) {
+    suggestion = '✅ On track! ~' + remaining + ' kcal left for the day. A light dinner with dal + 2 roti fits perfectly.';
+  } else if (remaining > 0) {
+    suggestion = '✅ Almost at target. Keep dinner very light — vegetable soup or sprouts salad.';
+  } else {
+    suggestion = '⚠️ Over target by ' + Math.abs(remaining) + ' kcal. Skip the evening snack and keep dinner light.';
+  }
+  if (totalProtein < 40) suggestion += '\n\n🥛 Protein is low (' + Math.round(totalProtein) + 'g so far). Add dal, curd, or paneer to your next meal. Target: 80–100g/day.';
+  document.getElementById('ai-suggestion-text').textContent = suggestion;
+  sugCard.style.display = 'block';
+}
+
+async function analyzeFood() {
+  const text = document.getElementById('food-text').value.trim();
+  if (!text) { alert('Type what you ate first!'); return; }
+
+  const btn = document.getElementById('analyze-btn');
+  const loading = document.getElementById('ai-loading');
+  const resultDiv = document.getElementById('ai-result');
+
+  btn.disabled = true;
+  btn.textContent = 'Analysing...';
+  loading.style.display = 'block';
+  resultDiv.style.display = 'none';
+  pendingFood = null;
+
+  const meal = document.getElementById('meal-type').value;
+  const todayLog = S.foodLog.map(f => f.name + ' (' + f.cal + ' kcal)').join(', ');
+
+  const prompt = `You are a nutrition expert for a 20-year-old Indian vegetarian male from Gujarat, 168cm, 80kg, trying to lose fat. He does NOT eat eggs or non-veg.
+
+He just ate: "${text}"
+Meal type: ${meal}
+Already eaten today: ${todayLog || 'nothing yet'}
+Daily calorie target: 1,650 kcal
+Daily protein target: 80–100g
+
+Analyse this meal and respond ONLY with valid JSON, no markdown, no explanation outside the JSON:
+{
+  "name": "short clean name for this meal (max 40 chars)",
+  "calories": number (total kcal, integer),
+  "protein": number (grams, integer),
+  "carbs": number (grams, integer),
+  "fat": number (grams, integer),
+  "summary": "2-sentence analysis: what's good/bad about this meal for fat loss",
+  "warning": "one specific warning if this meal is problematic (empty string if no warning)",
+  "alternatives": ["better alternative 1 using Gujarati vegetarian foods", "better alternative 2", "better alternative 3"]
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content[0].text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(raw);
+    pendingFood = { ...parsed, meal, time: new Date().getHours().toString().padStart(2,'0') + ':' + new Date().getMinutes().toString().padStart(2,'0') };
+
+    let html = '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;">' + parsed.name + '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">';
+    html += '<div style="text-align:center;background:var(--bg2);border-radius:var(--radius-sm);padding:8px;"><div style="font-size:16px;font-weight:700;color:var(--green);">' + parsed.calories + '</div><div style="font-size:10px;color:var(--text3);">kcal</div></div>';
+    html += '<div style="text-align:center;background:var(--bg2);border-radius:var(--radius-sm);padding:8px;"><div style="font-size:16px;font-weight:700;color:var(--blue);">' + parsed.protein + 'g</div><div style="font-size:10px;color:var(--text3);">protein</div></div>';
+    html += '<div style="text-align:center;background:var(--bg2);border-radius:var(--radius-sm);padding:8px;"><div style="font-size:16px;font-weight:700;color:var(--amber);">' + parsed.carbs + 'g</div><div style="font-size:10px;color:var(--text3);">carbs</div></div>';
+    html += '<div style="text-align:center;background:var(--bg2);border-radius:var(--radius-sm);padding:8px;"><div style="font-size:16px;font-weight:700;color:var(--text2);">' + parsed.fat + 'g</div><div style="font-size:10px;color:var(--text3);">fat</div></div>';
+    html += '</div>';
+    html += '<div style="font-size:13px;color:var(--text2);margin-bottom:8px;line-height:1.6;">' + parsed.summary + '</div>';
+    if (parsed.warning) {
+      html += '<div style="font-size:12px;color:#fbbf24;background:var(--amber-bg);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:8px;">⚠️ ' + parsed.warning + '</div>';
+    }
+    if (parsed.alternatives && parsed.alternatives.length) {
+      html += '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Better alternatives</div>';
+      parsed.alternatives.forEach(alt => {
+        html += '<div style="font-size:12px;color:var(--green);padding:4px 0;border-bottom:0.5px solid var(--border);">→ ' + alt + '</div>';
+      });
+    }
+
+    document.getElementById('ai-result-text').innerHTML = html;
+    resultDiv.style.display = 'block';
+  } catch(e) {
+    document.getElementById('ai-result-text').textContent = 'Could not analyse. Check your internet and try again.';
+    resultDiv.style.display = 'block';
+  }
+
+  loading.style.display = 'none';
+  btn.disabled = false;
+  btn.textContent = 'Analyse with AI →';
+}
+
+function confirmFood() {
+  if (!pendingFood) return;
+  S.foodLog.push({
+    name: pendingFood.name,
+    cal: pendingFood.calories,
+    protein: pendingFood.protein,
+    carbs: pendingFood.carbs,
+    fat: pendingFood.fat,
+    meal: pendingFood.meal,
+    time: pendingFood.time
+  });
+  save();
+  document.getElementById('food-text').value = '';
+  document.getElementById('ai-result').style.display = 'none';
+  pendingFood = null;
+  renderFood();
+  renderHome();
+}
+
+function cancelAI() {
+  document.getElementById('ai-result').style.display = 'none';
+  pendingFood = null;
+}
+
+function delFood(i) {
+  S.foodLog.splice(i, 1);
+  save();
+  renderFood();
+  renderHome();
+}
+
+// ── COACH ──
+const CHECKS = [
+  { id: 'wo', text: 'Completed today\'s workout' },
+  { id: 'water', text: 'Drank 3–3.5L water (not 7L)' },
+  { id: 'dinner', text: 'Ate dinner — did NOT skip' },
+  { id: 'protein', text: 'Had dal/paneer/curd/chana in meals' },
+  { id: 'nofarsan', text: 'Avoided daily farsan/biscuits' },
+  { id: 'sleep', text: 'Slept 7–8 hours last night' },
+  { id: 'nosugar', text: 'Max 1 chai with sugar today' }
+];
+
+function renderCoach() {
+  const div = document.getElementById('checklist');
+  div.innerHTML = '';
+  CHECKS.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'chk-row';
+    const on = S.checklist[c.id];
+    row.innerHTML = '<div class="chk-box' + (on ? ' on' : '') + '">' + (on ? '✓' : '') + '</div><div class="chk-text' + (on ? ' done' : '') + '">' + c.text + '</div>';
+    row.onclick = () => { S.checklist[c.id] = !S.checklist[c.id]; save(); renderCoach(); };
+    div.appendChild(row);
+  });
+}
+
+function submitCheckin() {
+  const done = CHECKS.filter(c => S.checklist[c.id]).length;
+  const missed = CHECKS.filter(c => !S.checklist[c.id]).map(c => c.text);
+  let msg = 'My daily check-in: ' + done + '/' + CHECKS.length + ' habits done today. ';
+  if (missed.length) msg += 'I missed: ' + missed.join('; ') + '. What should I do about these tomorrow?';
+  else msg += 'All habits complete! What should I focus on for tomorrow?';
+  alert('Check-in: ' + done + '/' + CHECKS.length + ' ✓\n\nCopy this message and send it to Claude:\n\n' + msg);
+}
+
+// ── INIT ──
+load();
+renderHome();
+renderWorkout();
+</script>
+</body>
+</html>
